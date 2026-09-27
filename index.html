@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Zawarmala Shaft — Live Cage Position &amp; Smart Cage Calling System</title>
+<style>
+  :root{
+    --bg:#0f172a;
+    --line:#24344f;
+    --line-2:#334155;
+    --text:#f8fafc;
+    --muted:#94a3b8;
+    --muted-2:#64748b;
+    --red:#ef4444;
+    --amber:#f59e0b;
+    --green:#10b981;
+    --blue:#38bdf8;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+
+  body{
+    min-height:100vh;
+    color:var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background:
+      radial-gradient(1100px 620px at 12% -12%, #17233d 0%, transparent 62%),
+      radial-gradient(900px 520px at 108% 4%, #12293c 0%, transparent 58%),
+      var(--bg);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ================= TOP BAR ================= */
+  .topbar{
+    position:sticky; top:0; z-index:60;
+    display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap;
+    padding:14px 24px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(15,23,42,.96), rgba(15,23,42,.72));
+    backdrop-filter: blur(10px);
+  }
+  .brand{ display:flex; align-items:center; gap:14px; }
+  .logo{
+    width:44px; height:44px; flex:0 0 44px; border-radius:11px;
+    display:grid; place-items:center;
+    font-weight:900; font-size:20px; color:#04202f;
+    background:linear-gradient(150deg,#7dd3fc,#10b981);
+    box-shadow:0 0 22px rgba(56,189,248,.45);
+  }
+  .brand h1{
+    margin:0; font-size:16px; letter-spacing:3.5px; font-weight:800;
+    background:linear-gradient(90deg,#f8fafc,#7dd3fc);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .brand p{ margin:3px 0 0; font-size:10.5px; letter-spacing:1.6px; color:var(--muted); }
+
+  .legend{ display:flex; gap:8px; flex-wrap:wrap; }
+  .chip{
+    display:inline-flex; align-items:center; gap:7px;
+    font-size:10px; font-weight:700; letter-spacing:1.4px; color:var(--muted);
+    padding:6px 11px; border:1px solid var(--line); border-radius:999px;
+    background:rgba(17,28,51,.7);
+  }
+  .chip i{ width:9px; height:9px; border-radius:50%; display:block; box-shadow:0 0 8px currentColor; }
+
+  /* ================= LAYOUT ================= */
+  .app{
+    display:grid;
+    grid-template-columns:minmax(0,620px) 440px;
+    gap:24px;
+    justify-content:center;
+    align-items:start;
+    padding:24px;
+    max-width:1700px;
+    margin:0 auto;
+  }
+
+  /* ================= LEFT : SHAFT ================= */
+  .col-left{
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:16px;
+    background:linear-gradient(180deg,#0e1830,#0b1424);
+    box-shadow:0 24px 60px rgba(0,0,0,.4);
+    overflow:hidden;
+  }
+  .col-head{
+    display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+    padding:2px 4px 12px; margin-bottom:12px;
+    border-bottom:1px solid var(--line);
+  }
+  .col-head h2{ margin:0; font-size:12px; letter-spacing:3px; font-weight:800; color:#cbd5e1; }
+  .col-head span{ font-size:9.5px; letter-spacing:1.6px; color:var(--muted-2); }
+
+  .stage-scaler{ position:relative; width:100%; height:1500px; overflow:hidden; }
+
+  .stage{
+    position:absolute; top:0; left:50%; margin-left:-250px;
+    width:500px; height:1500px;
+    transform-origin: top center;
+  }
+
+  /* --- Shaft --- */
+  .shaft{
+    position:absolute; left:400px; top:30px; width:72px; height:1440px;
+    border:2px solid #2c3e5c;
+    border-radius:10px;
+    background:
+      repeating-linear-gradient(180deg, rgba(148,163,184,.07) 0 1px, transparent 1px 40px),
+      linear-gradient(90deg,#070d1a 0%,#17233c 22%,#1c2b46 50%,#17233c 78%,#070d1a 100%);
+    box-shadow: inset 0 0 34px rgba(0,0,0,.85), 0 0 26px rgba(0,0,0,.5);
+    overflow:hidden;
+  }
+  .tick{
+    position:absolute; left:0; width:100%; height:2px;
+    background:linear-gradient(90deg, transparent, rgba(148,163,184,.55), transparent);
+  }
+
+  /* --- Cage --- */
+  .cage{
+    position:absolute; left:400px; width:72px; height:46px;
+    transform:translateY(-50%);
+    display:grid; place-items:center;
+    border:2px solid #7dd3fc; border-radius:8px;
+    background:linear-gradient(180deg,#38bdf8,#0284c7);
+    color:#04202f; font-size:10.5px; font-weight:900; letter-spacing:1.6px;
+    box-shadow:0 0 20px rgba(56,189,248,.85), 0 0 42px rgba(56,189,248,.35);
+    z-index:6;
+  }
+  .cage::before{
+    content:""; position:absolute; inset:-6px; border-radius:12px;
+    border:1px solid rgba(125,211,252,.35);
+  }
+
+  /* --- Junction Box panel --- */
+  .jb{
+    position:absolute; left:12px; width:330px; height:170px;
+    padding:8px;
+    display:flex; flex-direction:column; gap:7px;
+    border:2px solid var(--line-2);
+    border-radius:12px;
+    background:linear-gradient(180deg,#131e35,#0e1728);
+    box-shadow:0 6px 18px rgba(0,0,0,.35);
+    transition:border-color .25s, background .25s, box-shadow .25s;
+  }
+  .jb::after{
+    content:""; position:absolute; right:-58px; top:50%;
+    width:58px; height:2px; transform:translateY(-50%);
+    background:var(--line-2);
+    transition:background .25s, box-shadow .25s;
+  }
+
+  .jb-mrl{
+    height:24px; flex:0 0 24px;
+    display:flex; align-items:center; justify-content:center; gap:7px;
+    border:1px solid var(--line); border-radius:6px;
+    background:#0a1120;
+    font-family:var(--mono); font-size:15px; font-weight:700; letter-spacing:3px;
+    color:#cbd5e1;
+    transition:color .25s, border-color .25s;
+  }
+  .jb-mrl .unit{ font-size:9.5px; letter-spacing:1.4px; color:var(--muted-2); font-family:inherit; }
+
+  /* ===== LED MATRIX : 2 columns × 4 rows, each lamp labelled with its mRL ===== */
+  .leds{
+    flex:0 0 78px;
+    height:78px;
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    grid-template-rows:repeat(4, 1fr);
+    grid-auto-flow:column;
+    column-gap:14px;
+    row-gap:2px;
+    padding:0 12px;
+    align-content:center;
+  }
+  .led-cell{
+    display:flex; align-items:center; gap:6px;
+    min-width:0;
+  }
+  .led{
+    width:11px; height:11px; flex:0 0 11px;
+    border-radius:50%;
+    background:#1e293b; border:1px solid #334155;
+    box-shadow:inset 0 0 4px #000;
+    transition:background .18s, box-shadow .18s, border-color .18s;
+  }
+  .led.on{
+    background:var(--green); border-color:#6ee7b7;
+    box-shadow:0 0 10px #10b981, 0 0 20px rgba(16,185,129,.65);
+  }
+  .led-lbl{
+    font-family:var(--mono);
+    font-size:11px; font-weight:700; letter-spacing:.8px;
+    color:#526079;
+    transition:color .18s, text-shadow .18s;
+  }
+  .led-cell.active .led-lbl{
+    color:#34d399;
+    text-shadow:0 0 10px rgba(16,185,129,.85);
+  }
+
+  .call-btn{
+    flex:1 1 auto;
+    border:none; border-radius:8px; cursor:pointer;
+    font-family:inherit; font-size:13.5px; font-weight:900; letter-spacing:3px;
+    color:#fff;
+    background:linear-gradient(180deg,#ef4444,#b91c1c);
+    box-shadow:0 4px 0 #7f1d1d, 0 0 16px rgba(239,68,68,.45);
+    transition:transform .12s, box-shadow .2s, background .25s, opacity .2s;
+  }
+  .call-btn:active:not(:disabled){ transform:translateY(2px); box-shadow:0 2px 0 #7f1d1d; }
+  .call-btn:disabled{ cursor:not-allowed; }
+  .call-btn:focus-visible{ outline:2px solid #7dd3fc; outline-offset:2px; }
+
+  /* JB states */
+  .jb.calling{
+    border-color:var(--amber);
+    background:linear-gradient(180deg, rgba(245,158,11,.20), rgba(245,158,11,.05));
+    animation:pulseAmber 1.5s ease-in-out infinite;
+  }
+  .jb.calling .jb-mrl{ border-color:rgba(245,158,11,.65); color:var(--amber); }
+  .jb.calling .call-btn{
+    background:linear-gradient(180deg,#f59e0b,#b45309);
+    box-shadow:none; opacity:.7;
+  }
+  .jb.calling::after{ background:var(--amber); box-shadow:0 0 12px rgba(245,158,11,.8); }
+
+  .jb.here{
+    border-color:var(--green);
+    background:linear-gradient(180deg, rgba(16,185,129,.22), rgba(16,185,129,.05));
+    box-shadow:0 0 26px rgba(16,185,129,.35);
+  }
+  .jb.here .jb-mrl{ border-color:rgba(16,185,129,.7); color:#34d399; }
+  .jb.here .call-btn{
+    background:linear-gradient(180deg,#10b981,#047857);
+    box-shadow:0 0 18px rgba(16,185,129,.7);
+  }
+  .jb.here::after{ background:var(--green); box-shadow:0 0 12px rgba(16,185,129,.85); }
+
+  @keyframes pulseAmber{
+    0%,100%{ box-shadow:0 0 18px rgba(245,158,11,.22); }
+    50%    { box-shadow:0 0 34px rgba(245,158,11,.6); }
+  }
+
+  /* ================= RIGHT : HMI ================= */
+  .col-right{
+    position:sticky; top:88px;
+    max-height:calc(100vh - 112px);
+    overflow-y:auto;
+    padding-right:2px;
+  }
+  .col-right::-webkit-scrollbar{ width:8px; }
+  .col-right::-webkit-scrollbar-thumb{ background:#1e293b; border-radius:8px; }
+
+  .hmi{
+    border:1px solid var(--line); border-radius:16px; overflow:hidden;
+    background:linear-gradient(180deg,#0e1830,#0b1424);
+    box-shadow:0 24px 60px rgba(0,0,0,.45);
+  }
+
+  .hmi-head{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:15px 18px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#132039,#0e1830);
+  }
+  .hmi-head h2{ margin:0; font-size:19px; letter-spacing:5px; font-weight:900; color:#e2e8f0; }
+  .hmi-head p{ margin:4px 0 0; font-size:9.5px; letter-spacing:2.6px; color:var(--muted-2); }
+  .reset-btn{
+    font-family:inherit; font-size:9.5px; font-weight:800; letter-spacing:1.6px;
+    color:var(--muted); background:#16233d; border:1px solid var(--line-2);
+    padding:7px 11px; border-radius:8px; cursor:pointer; transition:all .2s;
+  }
+  .reset-btn:hover{ color:#f8fafc; border-color:#475569; background:#1e293b; }
+
+  .live-box{
+    padding:16px 18px 18px;
+    border-bottom:1px solid var(--line);
+    background:radial-gradient(420px 160px at 12% 0%, rgba(16,185,129,.12), transparent 70%), #0a1120;
+  }
+  .live-label{ font-size:9.5px; letter-spacing:3px; color:var(--muted-2); margin-bottom:9px; }
+  .live-value{
+    display:flex; align-items:baseline; gap:7px;
+    font-family:var(--mono); font-size:48px; font-weight:800; letter-spacing:2px; line-height:1;
+    color:#34d399;
+    text-shadow:0 0 26px rgba(16,185,129,.55);
+  }
+  .live-value .unit{ font-size:15px; letter-spacing:1.5px; color:#6ee7b7; }
+  .live-value #liveNum{ min-width:3ch; }
+
+  .live-status{
+    display:inline-block; margin-top:13px;
+    padding:5px 14px; border-radius:999px;
+    font-size:10.5px; font-weight:900; letter-spacing:2.4px;
+    border:1px solid transparent;
+    transition:all .25s;
+  }
+  .st-idle   { color:#94a3b8; border-color:#334155; background:rgba(51,65,85,.35); }
+  .st-moving { color:#7dd3fc; border-color:rgba(56,189,248,.6); background:rgba(56,189,248,.14); box-shadow:0 0 16px rgba(56,189,248,.3); }
+  .st-arrived{ color:#34d399; border-color:rgba(16,185,129,.65); background:rgba(16,185,129,.16); box-shadow:0 0 16px rgba(16,185,129,.35); }
+  .st-calling{ color:#fbbf24; border-color:rgba(245,158,11,.65); background:rgba(245,158,11,.16); animation:blink 1.1s ease-in-out infinite; }
+
+  @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.45;} }
+
+  .list-head{
+    padding:13px 18px;
+    font-size:9.5px; letter-spacing:3px; color:var(--muted-2);
+    border-bottom:1px solid var(--line);
+  }
+
+  .call-list{ padding:10px; display:flex; flex-direction:column; gap:8px; }
+
+  .row{
+    display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:10px;
+    padding:8px 10px;
+    border:1px solid var(--line); border-radius:10px;
+    background:#0d1728;
+    transition:border-color .25s, background .25s, box-shadow .25s;
+  }
+  .row.calling { border-color:rgba(245,158,11,.5); background:rgba(245,158,11,.07); }
+  .row.incoming{ border-color:rgba(245,158,11,.8); background:rgba(245,158,11,.13); box-shadow:0 0 18px rgba(245,158,11,.18); }
+  .row.here    { border-color:rgba(16,185,129,.65); background:rgba(16,185,129,.1); box-shadow:0 0 18px rgba(16,185,129,.18); }
+
+  .row-mrl{
+    font-family:var(--mono); font-size:15px; font-weight:700; letter-spacing:1.5px; color:#cbd5e1;
+    white-space:nowrap;
+  }
+  .row-mrl small{ font-size:8.5px; letter-spacing:1.2px; color:var(--muted-2); margin-left:4px; }
+
+  .tag{
+    min-width:76px; text-align:center;
+    font-size:8.5px; font-weight:900; letter-spacing:1.2px;
+    padding:5px 8px; border-radius:6px; border:1px solid transparent;
+    transition:all .25s;
+  }
+  .tag.idle    { color:#64748b; border-color:#334155; background:rgba(51,65,85,.3); }
+  .tag.calling { color:#fbbf24; border-color:rgba(245,158,11,.6); background:rgba(245,158,11,.15); }
+  .tag.incoming{ color:#fbbf24; border-color:rgba(245,158,11,.75); background:rgba(245,158,11,.2); animation:blink 1s ease-in-out infinite; }
+  .tag.here    { color:#34d399; border-color:rgba(16,185,129,.6); background:rgba(16,185,129,.16); }
+
+  .dispatch{
+    font-family:inherit; font-size:9.5px; font-weight:900; letter-spacing:1.6px;
+    padding:8px 12px; border-radius:8px; cursor:not-allowed;
+    color:#64748b; background:#1e293b; border:1px solid var(--line-2);
+    transition:all .2s;
+  }
+  .dispatch.ready{
+    color:#fff; cursor:pointer;
+    border-color:#6ee7b7;
+    background:linear-gradient(180deg,#10b981,#047857);
+    animation:pulseGreen 1.6s ease-in-out infinite;
+  }
+  .dispatch.ready:hover{ filter:brightness(1.16); }
+  .dispatch:focus-visible{ outline:2px solid #7dd3fc; outline-offset:2px; }
+
+  @keyframes pulseGreen{
+    0%,100%{ box-shadow:0 0 12px rgba(16,185,129,.45); }
+    50%    { box-shadow:0 0 26px rgba(16,185,129,.95); }
+  }
+
+  /* ================= RESPONSIVE ================= */
+  @media (max-width:1150px){
+    .app{ grid-template-columns:minmax(0,1fr) 380px; gap:18px; padding:18px; }
+  }
+  @media (max-width:880px){
+    .app{ grid-template-columns:minmax(0,1fr); }
+    .col-right{ position:static; max-height:none; overflow:visible; }
+    .legend{ display:none; }
+  }
+  @media (max-width:520px){
+    .app{ padding:10px; gap:12px; }
+    .col-left{ padding:10px; }
+    .live-value{ font-size:38px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">Z</div>
+    <div>
+      <h1>ZAWARMALA SHAFT</h1>
+      <p>ZAWAR GROUP OF MINES · HZL — LIVE LEVEL CAGE POSITION INDICATION &amp; SMART CAGE CALLING SYSTEM</p>
+    </div>
+  </div>
+  <div class="legend">
+    <span class="chip"><i style="background:#ef4444;color:#ef4444"></i>CALL</span>
+    <span class="chip"><i style="background:#f59e0b;color:#f59e0b"></i>CALLING / INCOMING</span>
+    <span class="chip"><i style="background:#10b981;color:#10b981"></i>CAGE HERE</span>
+    <span class="chip"><i style="background:#38bdf8;color:#38bdf8"></i>CAGE</span>
+  </div>
+</header>
+
+<main class="app">
+
+  <!-- ============ LEFT : SHAFT + JUNCTION BOX PANELS ============ -->
+  <section class="col-left">
+    <div class="col-head">
+      <h2>SHAFT SECTION</h2>
+      <span>8 LEVELS · JB PANELS ON LEFT OF SHAFT</span>
+    </div>
+
+    <div class="stage-scaler" id="stageScaler">
+      <div class="stage" id="stage">
+        <div class="shaft" id="shaft"></div>
+        <div class="cage" id="cage">CAGE</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RIGHT : WED HMI ============ -->
+  <aside class="col-right">
+    <div class="hmi">
+
+      <div class="hmi-head">
+        <div>
+          <h2>WED HMI</h2>
+          <p>WINDER OPERATOR CONSOLE</p>
+        </div>
+        <button class="reset-btn" id="resetBtn" type="button">RESET</button>
+      </div>
+
+      <div class="live-box">
+        <div class="live-label">LIVE CAGE POSITION</div>
+        <div class="live-value"><span id="liveNum">446</span><span class="unit">mRL</span></div>
+        <div class="live-status st-idle" id="liveStatus">IDLE</div>
+      </div>
+
+      <div class="list-head">CAGE CALLS &amp; DISPATCH LIST</div>
+      <div class="call-list" id="callList"></div>
+
+    </div>
+  </aside>
+
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+     CONFIGURATION  —  8 LEVELS, TOP → BOTTOM (descending mRL)
+     ============================================================ */
+  const LEVELS = [
+    { mrl: 446 }, { mrl: 430 }, { mrl: 355 }, { mrl: 300 },   // upper group
+    { mrl: 250 }, { mrl: 225 }, { mrl: 200 }, { mrl: 173 }    // lower group
+  ];
+
+  const N        = LEVELS.length;
+  const STAGE_W  = 500;    // internal design width  (px)
+  const STAGE_H  = 1500;   // internal design height (px)
+  const TOP_Y    = 110;    // stage-y of level 1  (446)
+  const BOT_Y    = 1370;   // stage-y of level 8  (173)
+  const STEP     = (BOT_Y - TOP_Y) / (N - 1);
+  const PANEL_H  = 170;
+  const SHAFT_TOP = 30;    // shaft element top offset (stage coords)
+
+  const yFor = i => TOP_Y + i * STEP;
+
+  /* plain mRL formatting — no leading zeros */
+  const fmt = v => String(Math.round(v));
+
+  /* ============================================================
+     STATE
+     ============================================================ */
+  const levels = LEVELS.map((l, i) => ({
+    mrl: l.mrl,
+    idx: i,
+    y: yFor(i),
+    status: 'idle'          // idle | calling | incoming | here
+  }));
+
+  let cageY        = levels[0].y;   // continuous cage position (stage-y px)
+  let lastLedIdx   = -1;
+  let moving       = false;
+  let arrivedFlag  = false;
+  let arrivedTimer = null;
+  let rafId        = null;
+
+  /* ============================================================
+     DOM REFERENCES
+     ============================================================ */
+  const stage      = document.getElementById('stage');
+  const scaler     = document.getElementById('stageScaler');
+  const shaft      = document.getElementById('shaft');
+  const cageEl     = document.getElementById('cage');
+  const liveNum    = document.getElementById('liveNum');
+  const liveStatus = document.getElementById('liveStatus');
+  const callList   = document.getElementById('callList');
+  const resetBtn   = document.getElementById('resetBtn');
+
+  const jbEls    = [];
+  const ledCells = [];   // per panel: array of .led-cell wrappers
+  const ledDots  = [];   // per panel: array of .led elements
+  const callBtns = [];
+  const rowEls   = [];
+  const tagEls   = [];
+  const dispBtns = [];
+
+  /* ============================================================
+     BUILD UI
+     ============================================================ */
+  levels.forEach(function (lv, i) {
+
+    /* ---------- Junction Box panel (left of shaft) ---------- */
+    const jb = document.createElement('div');
+    jb.className = 'jb';
+    jb.style.top = (lv.y - PANEL_H / 2) + 'px';
+
+    /* 8 lamp cells: 2 columns × 4 rows, each labelled with its level mRL */
+    let ledHtml = '';
+    for (let k = 0; k < N; k++) {
+      ledHtml +=
+        '<span class="led-cell">' +
+          '<i class="led"></i>' +
+          '<b class="led-lbl">' + fmt(LEVELS[k].mrl) + '</b>' +
+        '</span>';
+    }
+
+    jb.innerHTML =
+      '<div class="jb-mrl"><span>' + fmt(lv.mrl) + '</span><span class="unit">mRL</span></div>' +
+      '<div class="leds">' + ledHtml + '</div>' +
+      '<button class="call-btn" type="button">CALL</button>';
+
+    stage.appendChild(jb);
+    jbEls.push(jb);
+
+    ledCells.push(Array.prototype.slice.call(jb.querySelectorAll('.led-cell')));
+    ledDots.push(Array.prototype.slice.call(jb.querySelectorAll('.led')));
+
+    const cb = jb.querySelector('.call-btn');
+    callBtns.push(cb);
+    cb.addEventListener('click', function () { onCall(i); });
+
+    /* ---------- Shaft level tick ---------- */
+    const tick = document.createElement('div');
+    tick.className = 'tick';
+    tick.style.top = (lv.y - SHAFT_TOP) + 'px';
+    shaft.appendChild(tick);
+
+    /* ---------- HMI list row ---------- */
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML =
+      '<div class="row-mrl">' + fmt(lv.mrl) + '<small>mRL</small></div>' +
+      '<div class="tag idle">?</div>' +
+      '<button class="dispatch" type="button" disabled>DISPATCH</button>';
+
+    callList.appendChild(row);
+    rowEls.push(row);
+    tagEls.push(row.querySelector('.tag'));
+
+    const db = row.querySelector('.dispatch');
+    dispBtns.push(db);
+    db.addEventListener('click', function () { onDispatch(i); });
+  });
+
+  /* ============================================================
+     GEOMETRY HELPERS
+     ============================================================ */
+  function nearestIdx(y) {
+    let best = 0, bd = Infinity;
+    for (let i = 0; i < N; i++) {
+      const d = Math.abs(levels[i].y - y);
+      if (d < bd) { bd = d; best = i; }
+    }
+    return best;
+  }
+
+  /* Convert a continuous stage-y into an interpolated mRL value */
+  function mrlAtY(y) {
+    if (y <= levels[0].y)     return levels[0].mrl;
+    if (y >= levels[N - 1].y) return levels[N - 1].mrl;
+    for (let i = 0; i < N - 1; i++) {
+      const a = levels[i], b = levels[i + 1];
+      if (y >= a.y && y <= b.y) {
+        const t = (y - a.y) / (b.y - a.y);
+        return a.mrl + t * (b.mrl - a.mrl);
+      }
+    }
+    return levels[0].mrl;
+  }
+
+  /* ============================================================
+     RENDERING
+     ============================================================ */
+  function setCageY(y) {
+    cageEl.style.top = y + 'px';
+    liveNum.textContent = fmt(mrlAtY(y));
+  }
+
+  function updateLeds(activeIdx) {
+    if (activeIdx === lastLedIdx) return;
+    lastLedIdx = activeIdx;
+
+    for (let p = 0; p < ledDots.length; p++) {
+      const dots  = ledDots[p];
+      const cells = ledCells[p];
+      for (let k = 0; k < dots.length; k++) {
+        const on = (k === activeIdx);
+        dots[k].classList.toggle('on', on);
+        if (cells[k]) cells[k].classList.toggle('active', on);
+      }
+    }
+  }
+
+  const TAG_TEXT = {
+    idle:     '?',
+    calling:  'CALLING',
+    incoming: 'INCOMING',
+    here:     'CAGE HERE'
+  };
+
+  function render() {
+    for (let i = 0; i < N; i++) {
+      const lv = levels[i];
+
+      /* --- JB panel --- */
+      const jb = jbEls[i];
+      const isCalling = (lv.status === 'calling' || lv.status === 'incoming');
+      jb.classList.toggle('calling', isCalling);
+      jb.classList.toggle('here', lv.status === 'here');
+
+      const btn = callBtns[i];
+      if (lv.status === 'here') {
+        btn.textContent = 'HERE';
+        btn.disabled = true;
+      } else {
+        btn.textContent = 'CALL';
+        btn.disabled = (lv.status !== 'idle');
+      }
+
+      /* --- HMI row --- */
+      const row = rowEls[i];
+      row.classList.toggle('calling',  lv.status === 'calling');
+      row.classList.toggle('incoming', lv.status === 'incoming');
+      row.classList.toggle('here',     lv.status === 'here');
+
+      const tag = tagEls[i];
+      tag.className = 'tag ' + lv.status;
+      tag.textContent = TAG_TEXT[lv.status];
+
+      /* Dispatch only enabled when: called AND cage not already moving */
+      const db = dispBtns[i];
+      const ready = (lv.status === 'calling') && !moving;
+      db.classList.toggle('ready', ready);
+      db.disabled = !ready;
+    }
+  }
+
+  function updateStatus() {
+    let txt = 'IDLE', cls = 'st-idle';
+
+    if (moving) {
+      txt = 'MOVING'; cls = 'st-moving';
+    } else if (arrivedFlag) {
+      txt = 'ARRIVED'; cls = 'st-arrived';
+    } else if (levels.some(l => l.status === 'calling')) {
+      txt = 'CALLING'; cls = 'st-calling';
+    }
+
+    liveStatus.textContent = txt;
+    liveStatus.className = 'live-status ' + cls;
+  }
+
+  /* ============================================================
+     CAGE MOTION  —  requestAnimationFrame + ease-in-out
+     ============================================================ */
+  function easeInOut(t) {
+    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  }
+
+  function animateTo(targetIdx, done) {
+    const startY   = cageY;
+    const endY     = levels[targetIdx].y;
+    const startMrl = mrlAtY(startY);
+    const distance = Math.abs(levels[targetIdx].mrl - startMrl);
+
+    /* Duration scales with real mRL travel distance */
+    const duration = Math.min(3200, Math.max(900, 700 + distance * 14));
+    const t0 = performance.now();
+
+    function frame(now) {
+      let t = (now - t0) / duration;
+      if (t > 1) t = 1;
+
+      const e = easeInOut(t);
+      cageY = startY + (endY - startY) * e;
+
+      setCageY(cageY);
+      updateLeds(nearestIdx(cageY));
+
+      if (t < 1) {
+        rafId = requestAnimationFrame(frame);
+      } else {
+        rafId = null;
+        done();
+      }
+    }
+    rafId = requestAnimationFrame(frame);
+  }
+
+  /* ============================================================
+     INTERACTION LOGIC
+     ============================================================ */
+
+  /* STEP 1 — worker presses CALL on the shaft JB panel.
+     Cage does NOT move. Request is queued. */
+  function onCall(i) {
+    const lv = levels[i];
+    if (lv.status !== 'idle') return;
+
+    lv.status = 'calling';
+    render();
+    updateStatus();
+  }
+
+  /* STEP 2 — operator presses DISPATCH on the WED HMI. */
+  function onDispatch(i) {
+    if (moving) return;                       // one trip at a time
+    const lv = levels[i];
+    if (lv.status !== 'calling') return;      // only queued calls
+
+    /* cage leaves its current level */
+    levels.forEach(function (l) {
+      if (l.status === 'here') l.status = 'idle';
+    });
+
+    lv.status = 'incoming';
+    moving = true;
+    arrivedFlag = false;
+
+    render();
+    updateStatus();
+
+    /* STEP 3 — arrival */
+    animateTo(i, function () {
+      moving = false;
+      cageY = levels[i].y;
+      setCageY(cageY);
+      updateLeds(i);
+
+      levels[i].status = 'here';
+      arrivedFlag = true;
+
+      render();
+      updateStatus();
+
+      clearTimeout(arrivedTimer);
+      arrivedTimer = setTimeout(function () {
+        arrivedFlag = false;
+        updateStatus();
+      }, 1800);
+    });
+  }
+
+  /* ============================================================
+     RESET
+     ============================================================ */
+  function resetAll() {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    moving = false;
+    arrivedFlag = false;
+    clearTimeout(arrivedTimer);
+
+    levels.forEach(function (l) { l.status = 'idle'; });
+
+    cageY = levels[0].y;
+    setCageY(cageY);
+    updateLeds(0);
+    render();
+    updateStatus();
+  }
+
+  resetBtn.addEventListener('click', resetAll);
+
+  /* ============================================================
+     RESPONSIVE SCALING OF THE SHAFT STAGE
+     ============================================================ */
+  function fitStage() {
+    const avail = scaler.clientWidth;
+    if (!avail) return;
+    const s = Math.min(1, avail / STAGE_W);
+    stage.style.transform = 'scale(' + s + ')';
+    scaler.style.height = (STAGE_H * s) + 'px';
+  }
+
+  window.addEventListener('resize', fitStage);
+
+  /* ============================================================
+     BOOT
+     ============================================================ */
+  setCageY(cageY);
+  updateLeds(0);
+  render();
+  updateStatus();
+  fitStage();
+  requestAnimationFrame(fitStage);
+
+})();
+</script>
+</body>
+</html>
